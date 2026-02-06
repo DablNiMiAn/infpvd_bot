@@ -13,3 +13,10 @@ def get_cancel_keyboard(event_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Отменить", callback_data=f"cancel_{event_id}")]
     ])
+def get_leader_approval_keyboard(activist_id: int, event_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Отправить", callback_data=f"approve_{activist_id}_{event_id}"),
+            InlineKeyboardButton(text="Не отправлять", callback_data=f"reject_{activist_id}_{event_id}"),
+        ]
+    ])
