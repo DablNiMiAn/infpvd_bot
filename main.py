@@ -114,7 +114,8 @@ async def process_event_required_people(message: Message, state: FSMContext):
         time=user_data["event_time"],
         description=user_data["event_description"],
         required_people=int(message.text),
-        participants=[]
+        participants=[],
+        approved_participants=[]
     )
     await state.clear()
     await message.answer("Мероприятие создано!")
@@ -142,16 +143,61 @@ async def handle_join(callback: CallbackQuery):
     if user_id not in event.participants:
         event.participants.append(user_id)
         username = callback.from_user.username or callback.from_user.full_name
-        await bot.send_message(ADMIN_ID, f"Активист @{username} согласился на мероприятие {event.name}")
-        event = events[event_id]
+        await bot.send_message(
+            ADMIN_ID,
+            f"Активист @{username} хочет участвовать в мероприятии {event.name}.\n"
+            f"Подтвердите участие:",
+            reply_markup=get_leader_approval_keyboard(user_id, event_id)
+        )
         await callback.message.edit_text(
             f"Вы записаны на мероприятие {event.name}!\n"
             f"Дата: {event.date}\n"
             f"Время: {event.time}\n"
-            f"Описание: {event.description}"
+            f"Описание: {event.description}\n\n"
+            f"Ожидайте подтверждения от руководителя."
         )
     else:
         await callback.answer("Вы уже записаны на это мероприятие!")
+
+@dp.callback_query(F.data.startswith(("approve_", "reject_")))
+async def handle_leader_decision(callback: CallbackQuery):
+    data = callback.data.split("_")
+    activist_id = int(data[1])
+    event_id = int(data[2])
+    event = events[event_id]
+
+    if data[0] == "approve":
+        if activist_id not in event.approved_participants:
+            event.approved_participants.append(activist_id)
+            username = (await bot.get_chat(activist_id)).username or (await bot.get_chat(activist_id)).full_name
+            await bot.send_message(
+                activist_id,
+                f"Руководитель подтвердил ваше участие в мероприятии {event.name}!"
+            )
+            await callback.answer(f"Активист @{username} подтверждён.")
+
+            # Проверяем, набралось ли нужное количество участников
+            if len(event.approved_participants) >= event.required_people:
+                await notify_rejected_participants(event)
+        else:
+            await callback.answer("Этот активист уже подтверждён.")
+    elif data[0] == "reject":
+        username = (await bot.get_chat(activist_id)).username or (await bot.get_chat(activist_id)).full_name
+        await bot.send_message(
+            activist_id,
+            f"К сожалению, вас не выбрали на мероприятие {event.name}."
+        )
+        await callback.answer(f"Активист @{username} отклонён.")
+
+async def notify_rejected_participants(event: Event):
+    for participant in event.participants:
+        if participant not in event.approved_participants:
+            username = (await bot.get_chat(participant)).username or (await bot.get_chat(participant)).full_name
+            await bot.send_message(
+                participant,
+                f"К сожалению, на мероприятие {event.name} выбрано достаточно участников.\n"
+                f"В следующий раз вам обязательно повезёт!"
+            )
 
 @dp.message(Command("help"))
 async def send_help(message: Message):
@@ -225,3 +271,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
