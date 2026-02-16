@@ -19,7 +19,3 @@ class User:
     full_name: Optional[str] = None  # ФИО
     group: Optional[str] = None      # Учебная группа
     username: Optional[str] = None   # @username
-
-# Хранилище данных (в реальном проекте используйте базу данных)
-events: Dict[int, Event] = {}
-users: Dict[int, User] = {}
